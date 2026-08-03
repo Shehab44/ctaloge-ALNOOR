@@ -67,7 +67,25 @@ function processAndSaveImage(product) {
     }
   }
 
-  return imgUrl;
+  if (imgUrl.startsWith('images/')) {
+    const filePath = path.join(rootDir, imgUrl.replace(/^\/+/, ''));
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      return imgUrl;
+    }
+  }
+
+  return '';
+}
+
+function cleanupMissingImageUrls() {
+  const rows = db.prepare('SELECT id, image_url FROM products WHERE image_url IS NOT NULL AND image_url != ""').all();
+  const update = db.prepare('UPDATE products SET image_url = "" WHERE id = ?');
+  for (const row of rows) {
+    const filePath = path.join(rootDir, row.image_url.replace(/^\/+/, ''));
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+      update.run(row.id);
+    }
+  }
 }
 
 function initializeDatabase() {
@@ -190,6 +208,7 @@ function getContentType(filePath) {
 }
 
 initializeDatabase();
+cleanupMissingImageUrls();
 
 const server = http.createServer((req, res) => {
   try {
