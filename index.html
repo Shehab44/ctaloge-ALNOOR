@@ -254,7 +254,10 @@ async function loadProductsFromServer(){
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows=await res.json();
     if(Array.isArray(rows) && rows.length){
-      DATA=rows.map(p=>({...p, image_url:normalizeRelativeImagePath(p.image_url||'')}));
+      DATA=rows.map(p=>({
+        ...p,
+        image_url: normalizeProductImageUrl(p)
+      }));
       return;
     }
     throw new Error('Empty product list from API');
@@ -267,7 +270,10 @@ async function loadProductsFromServer(){
     if(!res.ok) throw new Error(`fallback HTTP ${res.status}`);
     const rows=await res.json();
     if(Array.isArray(rows) && rows.length){
-      DATA=rows.map(p=>({...p, image_url:normalizeRelativeImagePath(p.image_url||'')}));
+      DATA=rows.map(p=>({
+        ...p,
+        image_url: normalizeProductImageUrl(p)
+      }));
       return;
     }
   }catch(err){
@@ -315,6 +321,20 @@ function normalizeRelativeImagePath(src) {
     return `images/${normalized.split('/').pop()}`;
   }
   return normalized;
+}
+
+function getDefaultProductImageUrl(p) {
+  const fileName = buildImageFileName(p);
+  if (fileName && fileName !== 'item') {
+    return `images/${fileName}.png`;
+  }
+  return '';
+}
+
+function normalizeProductImageUrl(p) {
+  const normalized = normalizeRelativeImagePath(p.image_url || '');
+  if (normalized) return normalized;
+  return getDefaultProductImageUrl(p);
 }
 
 function isValidImageSource(src) {
