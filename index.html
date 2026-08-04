@@ -113,15 +113,124 @@ body{font-family:'Cairo',sans-serif;background:var(--dark);color:var(--text);hei
 .frow label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
 .frow input,.frow select{width:100%;padding:9px 10px;background:#0f172a;border:1.5px solid var(--border);border-radius:8px;color:#fff;font-family:'Cairo',sans-serif;font-size:14px;outline:none}
 .frow input:focus,.frow select:focus{border-color:var(--gold)}
-</style>
+.fgrid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fbtns{display:flex;gap:8px;margin-top:16px}
+.fbtn{flex:1;padding:11px;border-radius:9px;border:none;font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer}
+.fbtn.save{background:var(--gold);color:#111}
+.fbtn.cancel{background:rgba(255,255,255,.08);color:var(--text)}
 
-// Initialize app: load products from server and render
-async function initializeApp(){
-  await loadProductsFromServer();
-  run();
-}
-initializeApp();
-bindGridEvents();
+/* ===== added: paste-to-add-image modal + form preview ===== */
+.imgmodal{background:#1e293b;border:1px solid var(--gold);border-radius:16px;width:100%;max-width:380px;padding:20px;margin:12vh auto;text-align:center}
+.imgmodal .ftitle{margin-bottom:4px}
+.imgmodal .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.dropzone{border:2px dashed var(--border);border-radius:12px;padding:28px 14px;cursor:pointer;outline:none;transition:border-color .15s;margin-bottom:14px}
+.dropzone:focus,.dropzone.hover{border-color:var(--gold)}
+.dropzone .dzicon{font-size:30px;margin-bottom:8px}
+.dropzone .dztxt{font-size:12.5px;color:var(--muted);line-height:1.6}
+.dropzone .dztxt b{color:var(--gold)}
+.dropzone img.dzpreview{max-width:100%;max-height:160px;border-radius:8px;display:block;margin:0 auto}
+.f_preview{max-width:100%;max-height:150px;border-radius:8px;display:none;margin-top:8px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="h-top">
+    <div class="logo">AF <em>/ كتالوج المستودعات</em></div>
+    <div class="pills">
+      <span class="pill p1" id="s1">م1: —</span>
+      <span class="pill p2" id="s2">م2: —</span>
+      <span class="pill p3" id="s3">م3: —</span>
+    </div>
+  </div>
+  <div class="sw">
+    <span class="sic">🔍</span>
+    <input class="si" id="si" type="text" placeholder="ابحث بالاسم، الكود، رمز الطرد، الباركود..." autocomplete="off" spellcheck="false">
+    <button class="sc" id="sc" onclick="clrS()">✕</button>
+  </div>
+</div>
+
+<div class="filters">
+  <button class="fb on" onclick="setF('all',this)">الكل</button>
+  <button class="fb" onclick="setF('w1',this)">📦 مستودع 1</button>
+  <button class="fb" onclick="setF('w2',this)">📦 مستودع 2</button>
+  <button class="fb" onclick="setF('w3',this)">📦 مستودع 3</button>
+  <button class="fb" onclick="setF('img',this)">📷 عندهم صور</button>
+  <button class="fb" onclick="setF('noimg',this)">🚫📷 بدون صورة</button>
+  <button class="fb" onclick="setF('b10',this)">🔥 +10 صناديق</button>
+  <button class="fb" onclick="setF('an',this)">AN</button>
+  <button class="fb" onclick="setF('b',this)">B-</button>
+  <button class="fb" onclick="setF('m',this)">M-</button>
+</div>
+
+<div class="rbar">
+  <span id="rc">—</span>
+  <button class="sort-btn" id="sortBtn" onclick="togSort()">↕ ترتيب بالصناديق</button>
+</div>
+
+<div class="gw"><div class="grid" id="grid"></div></div>
+
+<div class="overlay" id="ov" onclick="clsM(event)">
+  <div class="modal">
+    <button class="medit" onclick="event.stopPropagation();openEditForm()">✏️ تعديل</button>
+    <button class="medit" id="delImgBtn" style="background:rgba(239,68,68,.15);border-color:var(--red);color:var(--red);display:none" onclick="event.stopPropagation();deleteCurrentImage()">🗑️ حذف الصورة</button>
+    <button class="mcl" onclick="clsM()">✕</button>
+    <img class="mimg" id="mi" src="" alt="">
+    <div class="mcode" id="mc"></div>
+    <div class="mname" id="mn"></div>
+    <div class="mqty" id="mq"></div>
+    <div class="mdetails" id="md"></div>
+  </div>
+</div>
+
+<input type="file" id="cardImgInput" accept="image/*" style="display:none">
+
+<div class="overlay" id="ovImg">
+  <div class="imgmodal">
+    <div class="ftitle" id="imgModalTitle">إضافة صورة</div>
+    <div class="sub">الصق الصورة (Ctrl+V) بعد نسخها، أو اختار ملف</div>
+    <div class="dropzone" id="dropzone" tabindex="0" onclick="document.getElementById('cardImgInput').click()">
+      <div id="dzInner"><div class="dzicon">📋</div><div class="dztxt">اضغط هون وبعدين <b>Ctrl+V</b><br>أو دوس لاختيار ملف من جهازك</div></div>
+    </div>
+    <div class="fbtns"><button class="fbtn cancel" onclick="closeImgModal()">إلغاء</button></div>
+  </div>
+</div>
+
+<div class="fab-bar">
+  <button class="fab exp" onclick="exportUpdated()" title="تصدير نسخة محدّثة">💾</button>
+  <button class="fab add" onclick="openAddForm()" title="إضافة صنف جديد">➕</button>
+</div>
+
+<div class="overlay" id="ov2">
+  <div class="fmodal">
+    <div class="ftitle" id="formTitle">إضافة صنف جديد</div>
+    <div class="frow"><label>اسم الصنف</label><input id="f_name" type="text"></div>
+    <div class="fgrid2">
+      <div class="frow"><label>كود المادة</label><input id="f_code" type="text"></div>
+      <div class="frow"><label>رمز الطرد</label><input id="f_package" type="text"></div>
+    </div>
+    <div class="frow"><label>الباركود</label><input id="f_barcode" type="text"></div>
+    <div class="fgrid2">
+      <div class="frow"><label>إجمالي القطع</label><input id="f_qtypcs" type="number" min="0"></div>
+      <div class="frow"><label>تعبئة الصندوق (قطعة)</label><input id="f_boxfill" type="number" min="1"></div>
+    </div>
+    <div class="fgrid2">
+      <div class="frow"><label>عدد الصناديق</label><input id="f_qtyboxes" type="number" min="0" step="0.1"></div>
+      <div class="frow"><label>المستودع</label>
+        <select id="f_warehouse">
+          <option value="مستودع 1">مستودع 1</option>
+          <option value="مستودع 2">مستودع 2</option>
+          <option value="مستودع 3">مستودع 3</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow"><label>صورة الصنف (اختياري) — بالإمكان الصق Ctrl+V بعد ما تختار هاد الحقل</label><input id="f_image" type="file" accept="image/*"><img id="f_preview" class="f_preview"></div>
+    <div class="fbtns">
+      <button class="fbtn save" onclick="saveForm()">حفظ</button>
+      <button class="fbtn cancel" onclick="clsForm()">إلغاء</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ملاحظة أمنية: هذا الملف يعمل كـ HTML محلي بدون auth أو صلاحيات منفصلة.
@@ -129,8 +238,10 @@ bindGridEvents();
 function esc(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-// Images are stored on the server. Client sends data-URLs to backend and
-// uses returned `image_url` (e.g. `images/xxx.png`) for display.
+const IMG_DB_NAME='AlNoorImagesDB';
+const IMG_STORE='images';
+const imageCache=new Map();
+
 let DATA = [];
 let filtered=[], curF='all', curQ='', sortByBoxes=false, page=0;
 const PAGE=50;
@@ -175,7 +286,7 @@ function normalizeRelativeImagePath(src) {
   if (!src) return '';
   const s = String(src).trim();
   if (!s) return '';
-  if (s.startsWith('data:image/') || s.startsWith('http://') || s.startsWith('https://')) return s;
+  if (s.startsWith('data:image/') || s.startsWith('db:') || s.startsWith('http://') || s.startsWith('https://')) return s;
   const normalized = s.replace(/\\/g, '/');
   if (normalized.startsWith('./images/')) return normalized.replace(/^\.\//, '');
   if (normalized.startsWith('images/')) return normalized;
@@ -199,7 +310,7 @@ function isValidImageSource(src) {
   if (s.startsWith('data:image/')) {
     return /^data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/i.test(s);
   }
-  return s.startsWith('images/') || s.startsWith('./images/') || s.startsWith('http://') || s.startsWith('https://');
+  return s.startsWith('images/') || s.startsWith('./images/') || s.startsWith('db:') || s.startsWith('http://') || s.startsWith('https://');
 }
 
 function buildImageFileName(p) {
@@ -213,29 +324,53 @@ function buildImageFileName(p) {
   return code || pkg || 'item';
 }
 
+function getItemImageKey(item) {
+  return item && item.image_url && String(item.image_url).startsWith('db:') ? String(item.image_url).slice(3) : buildItemKey(item);
+}
+
 function getImageDisplayUrl(item) {
   if (!item) return null;
+
+  const key = getItemImageKey(item);
+  if (imageCache.has(key)) {
+    return imageCache.get(key)?.dataUrl || null;
+  }
+
   const imageUrl = String(item.image_url || '').trim();
-  if (!imageUrl) return null;
-  // Accept data URLs or server-hosted image paths (images/...) or full URLs
-  if (imageUrl.startsWith('data:image/')) return imageUrl;
-  if (isValidImageSource(imageUrl)) return imageUrl;
+  const normalizedImageUrl = normalizeRelativeImagePath(imageUrl);
+
+  if (normalizedImageUrl.startsWith('db:')) {
+    const record = imageCache.get(normalizedImageUrl.slice(3));
+    return record?.dataUrl || null;
+  }
+
+  if (isValidImageSource(normalizedImageUrl)) return normalizedImageUrl;
+
   return null;
 }
 
 function getImg(p) {
   if (!p) return null;
-  const direct = getImageDisplayUrl(p);
-  if (direct) return direct;
-  // Fallback to server-side filename convention
+
+  const directUrl = getImageDisplayUrl(p);
+  if (directUrl) return directUrl;
+
   const baseName = buildImageFileName(p);
-  if (baseName && baseName !== 'item') return `images/${baseName}.png`;
+  if (baseName && baseName !== 'item') {
+    return `images/${baseName}.png`;
+  }
+
   const cleanCode = safeImageNamePart(p.code);
-  if (cleanCode) return `images/${cleanCode}.png`;
+  if (cleanCode) {
+    return `images/${cleanCode}.png`;
+  }
+
   return null;
 }
 
-function hasImage(p) { return !!getImg(p); }
+function hasImage(p) {
+  return !!getImg(p);
+}
 
 function findByKey(key){
   if(!key) return null;
@@ -460,15 +595,14 @@ function closeImgModal(){
   imgPickerCode=null;
 }
 async function applyPickedImage(blob){
-  const {dataUrl, blob:compressedBlob}=await compressImage(blob);
+  const {blob:compressedBlob}=await compressImage(blob);
   const p=findByKey(imgPickerCode);
   if(!p) return;
-  try{
-    const payload = { ...p, image_url: dataUrl };
-    const saved = await saveProductToServer(payload);
-    // update local record
-    p.image_url = saved.image_url || dataUrl;
-  }catch(err){
+  await saveImageForItem(p, compressedBlob);
+  try {
+    const saved = await saveProductToServer(p);
+    p.image_url = saved.image_url || p.image_url;
+  } catch (err) {
     console.warn('لم يتم حفظ الصورة على الخادم:', err);
   }
   run(); closeImgModal();
@@ -548,7 +682,16 @@ document.getElementById('f_image').addEventListener('change', async function(e){
 });
 function clsForm(){document.getElementById('ov2').classList.remove('on');}
 async function saveProductToServer(product){
-  const payload = { product: { ...product, image_url: String(product.image_url || '') } };
+  const payloadProduct = { ...product };
+  if (typeof payloadProduct.image_url === 'string' && payloadProduct.image_url.startsWith('db:')) {
+    const record = imageCache.get(payloadProduct.image_url.slice(3));
+    if (record && record.dataUrl) {
+      payloadProduct.image_url = record.dataUrl;
+    } else {
+      payloadProduct.image_url = '';
+    }
+  }
+  const payload = { product: { ...payloadProduct, image_url: normalizeRelativeImagePath(payloadProduct.image_url || '') } };
   const response = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   if (!response.ok) throw new Error('فشل حفظ المنتج في قاعدة البيانات');
   return await response.json();
@@ -574,10 +717,10 @@ async function saveForm(){
     image_url: existingItem ? existingItem.image_url || '' : ''
   };
 
-    if(formImageData){
-      // send compressed data-URL to server; server will save file and return stored image URL
-      obj.image_url = formImageData;
-    }
+  if(formImageBlob){
+    await saveImageForItem(obj, formImageBlob);
+    obj.image_url=`db:${buildItemKey(obj)}`;
+  }
 
   const duplicateNote=validateProductDuplication(obj);
   if(duplicateNote) alert(duplicateNote);
@@ -618,21 +761,14 @@ async function exportUpdated(){
   const zip=new JSZip();
   const imagesFolder=zip.folder('images');
   for(const p of exportProducts){
-    const url=String(p.image_url||'');
-    if(url.startsWith('data:image/')){
-      const m = url.match(/^data:(image\/[^;]+);base64,(.+)$/);
-      if(m){
-        const mime = m[1];
-        const ext = (mime.split('/')[1]||'jpg').replace('jpeg','jpg');
-        const fileName = `${safeImageNamePart(buildImageFileName(p))}.${ext}`;
-        imagesFolder.file(fileName, m[2], {base64:true});
-        p.image_url = `images/${fileName}`;
-      } else {
-        p.image_url='';
-      }
+    const record=imageCache.get(getItemImageKey(p));
+    if(record){
+      const ext=(record.mimeType.split('/')[1]||'jpg').toLowerCase();
+      const fileName=`${safeImageNamePart(buildImageFileName(p))}.${ext==='jpeg'?'jpg':ext}`;
+      imagesFolder.file(fileName, record.dataUrl.split(',')[1], {base64:true});
+      p.image_url=`images/${fileName}`;
     } else {
-      // keep server-side image paths as-is (if present)
-      p.image_url = url.startsWith('images/') ? url : '';
+      p.image_url='';
     }
   }
 
@@ -663,12 +799,119 @@ function updateStats(){
 /* ===================================================================
    إدارة الصور محلياً عبر IndexedDB (بدون مجلدات أو صلاحيات)
    =================================================================== */
-// Images are managed by the server. Initialize by loading products and rendering.
-async function initializeApp(){
+function dataUrlToBlob(dataUrl){
+  const [header, body='']=String(dataUrl).split(',');
+  const mime=(header.match(/data:(.*?);/)||[])[1]||'image/jpeg';
+  const binary=atob(body);
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+  return new Blob([bytes], {type:mime});
+}
+
+async function openImageDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(IMG_DB_NAME,1);
+    req.onupgradeneeded=()=>{ req.result.createObjectStore(IMG_STORE,{keyPath:'key'}); };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+
+async function saveImageRecord(record){
+  const db=await openImageDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(IMG_STORE,'readwrite');
+    tx.objectStore(IMG_STORE).put(record);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+
+async function loadAllImageRecords(){
+  const db=await openImageDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(IMG_STORE,'readonly');
+    const req=tx.objectStore(IMG_STORE).getAll();
+    req.onsuccess=()=>resolve(req.result||[]);
+    req.onerror=()=>reject(req.error);
+  });
+}
+
+async function deleteImageRecord(item){
+  const db=await openImageDB();
+  const key=getItemImageKey(item);
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(IMG_STORE,'readwrite');
+    tx.objectStore(IMG_STORE).delete(key);
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error);
+  });
+}
+
+async function loadImagesIntoCache(){
+  const records=await loadAllImageRecords();
+  imageCache.clear();
+  for(const record of records){ imageCache.set(record.key, record); }
+}
+
+async function saveImageForItem(item, blob){
+  const compressed=await compressImage(blob);
+  const key=getItemImageKey(item);
+  const record={
+    key,
+    dataUrl: compressed.dataUrl,
+    mimeType: compressed.blob?.type || 'image/jpeg',
+    updatedAt: Date.now()
+  };
+  await saveImageRecord(record);
+  imageCache.set(key, record);
+  item.image_url=`db:${key}`;
+  return record;
+}
+
+async function migrateLegacyImageUrls(){
+  let migrated=0;
+  for(const p of DATA){
+    if(!p.image_url) continue;
+    if(String(p.image_url).startsWith('db:') || String(p.image_url).startsWith('images/')) continue;
+    if(String(p.image_url).startsWith('data:image')){
+      const blob=dataUrlToBlob(p.image_url);
+      await saveImageForItem(p, blob);
+      migrated++;
+    } else if(/^https?:\/\//i.test(String(p.image_url))){
+      const response=await fetch(p.image_url);
+      if(response.ok){
+        const blob=await response.blob();
+        await saveImageForItem(p, blob);
+        migrated++;
+      }
+    }
+  }
+  return migrated;
+}
+
+async function initializeImages(){
   await loadProductsFromServer();
+
+  for(const p of DATA){
+    if(p.image_url){ p.image_url=normalizeRelativeImagePath(p.image_url); }
+  }
+
+  await loadImagesIntoCache();
+
+  for(const p of DATA){
+    const key=buildItemKey(p);
+    if(imageCache.has(key)){
+      p.image_url=`db:${key}`;
+    }
+  }
+
+  const migrated=await migrateLegacyImageUrls();
+  if(migrated) console.log(`تم تحويل ${migrated} صور قديمة إلى IndexedDB`);
+
   run();
 }
-initializeApp();
+initializeImages();
 bindGridEvents();
 
 /* حذف صورة الصنف المفتوح حالياً بالنافذة المنبثقة */
@@ -678,7 +921,12 @@ async function deleteCurrentImage(){
   const path=p.image_url;
   if(!path){ alert('لا توجد صورة لهاد الصنف أساساً.'); return; }
   if(!confirm(`متأكد إنك بدك تحذف صورة الصنف "${p.name}"؟`)) return;
-  // Clear image URL on product and persist to server
+
+  if(String(path).startsWith('db:')){
+    await deleteImageRecord(p);
+    imageCache.delete(String(path).slice(3));
+  }
+
   p.image_url='';
   try{
     await saveProductToServer(p);
